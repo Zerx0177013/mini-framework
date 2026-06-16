@@ -14,15 +14,42 @@ public class LoadingClass {
         return clazzScanned.isAnnotationPresent(MonController.class);
     }
 
-    public static List<String> loadClassWithMyAnnotation(String packageName) {
+    public static List<String> loadClassWithMyAnnotation(String packageName, String monAnnotation) {
         List<String> listeClasse = new ArrayList<>();
         try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
-            ClassInfoList classes = scanResult.getAllClasses();
-            for (ClassInfo classInfo : classes) {
-                Class<?> clazz = classInfo.loadClass();
-                if (hasAnnotation(clazz)) {
-                    listeClasse.add(classInfo.getName());
-                }
+            ClassInfoList classesAvecAnnotation = scanResult.getClassesWithAnnotation(monAnnotation);
+            for (ClassInfo classInfo : classesAvecAnnotation) {
+                listeClasse.add(classInfo.getName());
+            }
+        }
+        return listeClasse;
+    }
+
+    public static List<String> loadClassWithMyAnnotation(String monAnnotation) {
+        List<String> listeClasse = new ArrayList<>();
+
+        try (ScanResult scanResult = new ClassGraph()
+                .enableAllInfo()
+                .scan()) {
+
+            ClassInfoList classesAvecAnnotation = scanResult.getClassesWithAnnotation(monAnnotation);
+            for (ClassInfo classInfo : classesAvecAnnotation) {
+                listeClasse.add(classInfo.getName());
+            }
+        }
+        return listeClasse;
+    }
+
+    public static List<String> loadAllClasses() {
+        List<String> listeClasse = new ArrayList<>();
+
+        try (ScanResult scanResult = new ClassGraph()
+                .enableAllInfo()
+                .scan()) {
+
+            ClassInfoList classesAvecAnnotation = scanResult.getAllClasses();
+            for (ClassInfo classInfo : classesAvecAnnotation) {
+                listeClasse.add(classInfo.getName());
             }
         }
         return listeClasse;

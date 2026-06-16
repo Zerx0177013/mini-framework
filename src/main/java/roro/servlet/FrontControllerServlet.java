@@ -39,11 +39,11 @@ public class FrontControllerServlet extends HttpServlet {
             throws IOException {
         response.setContentType("text/plain;charset=UTF-8");
 
-        // String url = request.getRequestURL().toString();
+        String url = request.getRequestURL().toString();
 
         try (PrintWriter out = response.getWriter()) {
+            out.println("URL interceptée : " + url);
             out.println("---Mon Framework Perso ---");
-            // out.println("URL interceptée : " + url);
 
             for (String classe : listeClasse) {
                 out.println(classe);

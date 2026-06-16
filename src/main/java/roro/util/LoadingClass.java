@@ -14,12 +14,15 @@ public class LoadingClass {
         return clazzScanned.isAnnotationPresent(MonController.class);
     }
 
-    public static List<String> loadClass(String packageName) {
+    public static List<String> loadClassWithMyAnnotation(String packageName) {
         List<String> listeClasse = new ArrayList<>();
         try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
             ClassInfoList classes = scanResult.getAllClasses();
             for (ClassInfo classInfo : classes) {
-                listeClasse.add(classInfo.getName());
+                Class<?> clazz = classInfo.loadClass();
+                if (hasAnnotation(clazz)) {
+                    listeClasse.add(classInfo.getName());
+                }
             }
         }
         return listeClasse;

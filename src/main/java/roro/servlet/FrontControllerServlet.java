@@ -19,8 +19,11 @@ public class FrontControllerServlet extends HttpServlet {
         super.init();
         String packageName = "roro.app";
         String monAnnotation = "roro.annotation.MonController";
-        listeClasse = roro.util.LoadingClass.loadClassWithMyAnnotation(packageName, monAnnotation);
-        // listeClasse = roro.util.LoadingClass.loadAllClasses();
+        String monAnnotation2 = "roro.annotation.UrlMapping";
+        List<String> mesAnnotations = new ArrayList<>();
+        mesAnnotations.add(monAnnotation);
+        mesAnnotations.add(monAnnotation2);
+        listeClasse = roro.util.LoadingClass.loadClassWithMyAnnotation(packageName, mesAnnotations);
     }
 
     @Override

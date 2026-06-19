@@ -3,9 +3,13 @@ package roro.util;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
@@ -60,6 +64,52 @@ public class LoadingClass {
             }
         }
         return listeClasse;
+    }
+
+    public static boolean isARouteInsideMapping(String url, Map<String, Mapping> routes) {
+        return routes.containsKey(url);
+    }
+
+    public static Map<String, Mapping> loadUrlMappings(String packageName, String monAnnotationClasse,
+            String monAnnotationMethode) {
+        Map<String, Mapping> routes = new HashMap<>();
+
+        try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
+            ClassInfoList classesInfo = scanResult.getAllClasses();
+
+            for (ClassInfo classInfo : classesInfo) {
+                try {
+                    Class<?> clazz = Class.forName(classInfo.getName());
+
+
+                    if (!hasAnnotation(clazz, monAnnotationClasse)) {
+                        continue;
+                    }
+
+                    Class<?> annotationMethodeClass = Class.forName(monAnnotationMethode);
+                    Class<? extends Annotation> urlMappingAnnotationClass = annotationMethodeClass
+                            .asSubclass(Annotation.class);
+
+                    for (Method method : clazz.getDeclaredMethods()) {
+                        Annotation urlMapping = method.getAnnotation(urlMappingAnnotationClass);
+                        if (urlMapping != null) {
+                            String url = (String) urlMappingAnnotationClass
+                                    .getMethod("value")
+                                    .invoke(urlMapping);
+
+                            routes.put(url, new Mapping(url, clazz, method));
+                        }
+                    }
+
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException("Erreur lors du chargement de la classe : " + classInfo.getName(), e);
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                    throw new RuntimeException("Erreur lors de la lecture de l'annotation " + monAnnotationMethode, e);
+                }
+            }
+        }
+
+        return routes;
     }
 
     public static List<String> loadClassWithMyAnnotation(String packageName, String monAnnotation) {

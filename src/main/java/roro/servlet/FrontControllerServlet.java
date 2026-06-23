@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import roro.util.Mapping;
+import roro.util.UrlMethod;
 
 public class FrontControllerServlet extends HttpServlet {
 
@@ -27,7 +28,8 @@ public class FrontControllerServlet extends HttpServlet {
     // mesAnnotations);
     // }
 
-    Map<String, Mapping> routes;
+    // Map<String, Mapping> routes;
+    Map<UrlMethod, Mapping> routesWithMethod;
 
     @Override
     public void init() throws ServletException {
@@ -36,7 +38,8 @@ public class FrontControllerServlet extends HttpServlet {
         String monAnnotation = "roro.annotation.MonController";
         String monAnnotation2 = "roro.annotation.UrlMapping";
 
-        routes = roro.util.LoadingClass.loadUrlMappings(packageName, monAnnotation, monAnnotation2);
+        // routes = roro.util.LoadingClass.loadUrlMappings(packageName, monAnnotation, monAnnotation2);
+        routesWithMethod = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName, monAnnotation, monAnnotation2);
     }
 
     @Override
@@ -55,27 +58,22 @@ public class FrontControllerServlet extends HttpServlet {
             throws IOException {
         response.setContentType("text/plain;charset=UTF-8");
 
-        String url = request.getRequestURL().toString();
+        // String url = request.getRequestURL().toString();
 
         try (PrintWriter out = response.getWriter()) {
             out.println("---Mon Framework Perso ---");
 
-            // for (String classe : listeClasse) {
-            // out.println(classe);
-            // }
 
             String pathInfo = request.getRequestURI().substring(request.getContextPath().length());
-
-            if (roro.util.LoadingClass.isARouteInsideMapping(pathInfo, routes)) {
-                Mapping mapping = routes.get(pathInfo);
-                out.println("Route trouvée : " + mapping);
+            UrlMethod urlMethod = new UrlMethod(pathInfo, request.getMethod());
+            if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {
+                Mapping mapping = routesWithMethod.get(urlMethod);
+                out.println("Route trouvée : " + urlMethod + " -> " + mapping);
             } else {
                 out.println("Aucune route trouvée pour l'URL : " + pathInfo);
-                for (Mapping mapping : routes.values()) {
-                    out.println(mapping.getUrl() + " -> "
-                            + mapping.getClassName() + "->"
-                            + mapping.getMethod().getName() + "()");
-                }
+                routesWithMethod.forEach((urlMethodKey, mapping) -> {
+                    out.println(urlMethodKey + " -> " + mapping.getClassName() + "->" + mapping.getMethod().getName() + "()");
+                });
             }
 
         }

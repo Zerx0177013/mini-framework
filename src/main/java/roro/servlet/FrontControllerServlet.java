@@ -2,8 +2,6 @@ package roro.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.ServletException;
@@ -14,7 +12,7 @@ import roro.util.Mapping;
 
 public class FrontControllerServlet extends HttpServlet {
 
-    List<String> listeClasse = new ArrayList<>();
+    // List<String> listeClasse = new ArrayList<>();
 
     // @Override
     // public void init() throws ServletException {
@@ -60,7 +58,6 @@ public class FrontControllerServlet extends HttpServlet {
         String url = request.getRequestURL().toString();
 
         try (PrintWriter out = response.getWriter()) {
-            out.println("URL interceptée : " + url);
             out.println("---Mon Framework Perso ---");
 
             // for (String classe : listeClasse) {
@@ -76,7 +73,7 @@ public class FrontControllerServlet extends HttpServlet {
                 out.println("Aucune route trouvée pour l'URL : " + pathInfo);
                 for (Mapping mapping : routes.values()) {
                     out.println(mapping.getUrl() + " -> "
-                            + mapping.getClassName() + "."
+                            + mapping.getClassName() + "->"
                             + mapping.getMethod().getName() + "()");
                 }
             }

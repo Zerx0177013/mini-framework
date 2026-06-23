@@ -2,6 +2,8 @@ package roro.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 import jakarta.servlet.ServletException;
@@ -69,6 +71,23 @@ public class FrontControllerServlet extends HttpServlet {
             if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {
                 Mapping mapping = routesWithMethod.get(urlMethod);
                 out.println("Route trouvée : " + urlMethod + " -> " + mapping);
+                System.out.println("Route trouvée : " + urlMethod + " -> " + mapping);
+            
+                try {
+                    Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
+                    Method controllerMethod = mapping.getMethod();
+                    Object result = controllerMethod.invoke(controller);
+
+                    if (result != null) {
+                        out.println("Resultat de la methode:\n");
+                        out.println(result);
+                        System.out.println(result);
+                    }
+                    
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                        | NoSuchMethodException e) {
+                    throw new RuntimeException("Impossible d'exécuter la méthode liée à " + urlMethod, e);
+                }
             } else {
                 out.println("Aucune route trouvée pour l'URL : " + pathInfo);
                 routesWithMethod.forEach((urlMethodKey, mapping) -> {

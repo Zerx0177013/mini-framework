@@ -70,6 +70,55 @@ public class LoadingClass {
         return routes.containsKey(url);
     }
 
+    public static boolean isARouteInsideMappingWithMethod(UrlMethod urlMethod, Map<UrlMethod, Mapping> routes) {
+        return routes.containsKey(urlMethod);
+    }
+
+    public static Map<UrlMethod, Mapping> loadUrlMappingsWithMethod(String packageName, String monAnnotationClasse,
+            String monAnnotationMethode) {
+        Map<UrlMethod, Mapping> routes = new HashMap<>();
+
+        try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
+            ClassInfoList classesInfo = scanResult.getAllClasses();
+
+            for (ClassInfo classInfo : classesInfo) {
+                try {
+                    Class<?> clazz = Class.forName(classInfo.getName());
+
+                    if (!hasAnnotation(clazz, monAnnotationClasse)) {
+                        continue;
+                    }
+
+                    Class<?> annotationMethodeClass = Class.forName(monAnnotationMethode);
+                    Class<? extends Annotation> urlMappingAnnotationClass = annotationMethodeClass
+                            .asSubclass(Annotation.class);
+
+                    for (Method method : clazz.getDeclaredMethods()) {
+                        Annotation urlMapping = method.getAnnotation(urlMappingAnnotationClass);
+                        if (urlMapping != null) {
+                            String url = (String) urlMappingAnnotationClass
+                                    .getMethod("value")
+                                    .invoke(urlMapping);
+                            String methodType = (String) urlMappingAnnotationClass
+                                    .getMethod("method")
+                                    .invoke(urlMapping);
+
+                            UrlMethod urlMethod = new UrlMethod(url, methodType);
+                            routes.put(urlMethod, new Mapping(clazz, method));
+                        }
+                    }
+
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException("Erreur lors du chargement de la classe : " + classInfo.getName(), e);
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                    throw new RuntimeException("Erreur lors de la lecture de l'annotation " + monAnnotationMethode, e);
+                }
+            }
+        }
+
+        return routes;
+    }
+
     public static Map<String, Mapping> loadUrlMappings(String packageName, String monAnnotationClasse,
             String monAnnotationMethode) {
         Map<String, Mapping> routes = new HashMap<>();
@@ -97,7 +146,7 @@ public class LoadingClass {
                                     .getMethod("value")
                                     .invoke(urlMapping);
 
-                            routes.put(url, new Mapping(url, clazz, method));
+                            routes.put(url, new Mapping(clazz, method));
                         }
                     }
 

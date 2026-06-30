@@ -31,18 +31,18 @@ public class FrontControllerServlet extends HttpServlet {
     // }
 
     // Map<String, Mapping> routes;
-    Map<UrlMethod, Mapping> routesWithMethod;
+    // Map<UrlMethod, Mapping> routesWithMethod;
 
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        String packageName = "roro.app";
-        String monAnnotation = "roro.annotation.MonController";
-        String monAnnotation2 = "roro.annotation.UrlMapping";
+    // @Override
+    // public void init() throws ServletException {
+    //     super.init();
+    //     String packageName = "roro.app";
+    //     String monAnnotation = "roro.annotation.MonController";
+    //     String monAnnotation2 = "roro.annotation.UrlMapping";
 
-        // routes = roro.util.LoadingClass.loadUrlMappings(packageName, monAnnotation, monAnnotation2);
-        routesWithMethod = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName, monAnnotation, monAnnotation2);
-    }
+    //     // routes = roro.util.LoadingClass.loadUrlMappings(packageName, monAnnotation, monAnnotation2);
+    //     routesWithMethod = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName, monAnnotation, monAnnotation2);
+    // }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -56,11 +56,13 @@ public class FrontControllerServlet extends HttpServlet {
         processRequest(request, response);
     }
 
+    @SuppressWarnings("unchecked")
     private void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.setContentType("text/plain;charset=UTF-8");
 
         // String url = request.getRequestURL().toString();
+        Map<UrlMethod, Mapping> routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
 
         try (PrintWriter out = response.getWriter()) {
             out.println("---Mon Framework Perso ---");

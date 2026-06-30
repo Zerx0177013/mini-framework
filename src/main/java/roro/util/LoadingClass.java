@@ -75,7 +75,7 @@ public class LoadingClass {
     }
 
     public static Map<UrlMethod, Mapping> loadUrlMappingsWithMethod(String packageName, String monAnnotationClasse,
-            String monAnnotationMethode) {
+            String monAnnotationMethode) throws IllegalStateException {
         Map<UrlMethod, Mapping> routes = new HashMap<>();
 
         try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
@@ -104,6 +104,21 @@ public class LoadingClass {
                                     .invoke(urlMapping);
 
                             UrlMethod urlMethod = new UrlMethod(url, methodType);
+                            if (routes.containsKey(urlMethod)) {
+                                Mapping mappingExistant = routes.get(urlMethod);
+                                throw new IllegalStateException(
+                                        """
+                                                [ERREUR] Conflit de routes détecté !
+                                                La route [%s %s] est déjà associée à la méthode : %s.%s()
+                                                Impossible de la réassigner à : %s.%s()
+                                                """.formatted(
+                                                methodType,
+                                                url,
+                                                mappingExistant.getControllerClass().getName(),
+                                                mappingExistant.getMethod().getName(),
+                                                clazz.getName(),
+                                                method.getName()));
+                            }
                             routes.put(urlMethod, new Mapping(clazz, method));
                         }
                     }
@@ -129,7 +144,6 @@ public class LoadingClass {
             for (ClassInfo classInfo : classesInfo) {
                 try {
                     Class<?> clazz = Class.forName(classInfo.getName());
-
 
                     if (!hasAnnotation(clazz, monAnnotationClasse)) {
                         continue;

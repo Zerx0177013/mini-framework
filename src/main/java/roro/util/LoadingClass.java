@@ -1,5 +1,7 @@
 package roro.util;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
@@ -10,6 +12,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
@@ -17,6 +20,19 @@ import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
 
 public class LoadingClass {
+    private static Properties loadConfigProperties() {
+        Properties prop = new Properties();
+        try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
+            if (input == null) {
+                throw new RuntimeException("[ERREUR] Impossible de trouver le fichier config.properties.");
+            }
+            prop.load(input);
+            return prop;
+        } catch (IOException e) {
+            throw new RuntimeException("Erreur lors de la lecture de config.properties", e);
+        }
+    }
+
     public static boolean hasAnnotation(Class<?> clazzScanned, String monAnnotation) {
         try {
             Class<?> clazz = Class.forName(monAnnotation);
@@ -74,9 +90,38 @@ public class LoadingClass {
         return routes.containsKey(urlMethod);
     }
 
-    public static Map<UrlMethod, Mapping> loadUrlMappingsWithMethod(String packageName, String monAnnotationClasse,
-            String monAnnotationMethode) throws IllegalStateException {
+   public static Map<UrlMethod, Mapping> loadUrlMappingsWithMethod() throws IllegalStateException {
+        Properties prop = loadConfigProperties();
+        String packageName = prop.getProperty("app.package");
+        if (packageName == null || packageName.isBlank()) {
+            throw new RuntimeException("[ERREUR] La propriété 'app.package' est manquante dans config.properties.");
+        }
+        return loadUrlMappingsWithMethod(packageName);
+    }
+
+   public static Map<UrlMethod, Mapping> loadUrlMappingsWithMethod(String packageName) throws IllegalStateException {
         Map<UrlMethod, Mapping> routes = new HashMap<>();
+
+        Class<? extends Annotation> controllerAnnotationClass;
+        Class<? extends Annotation> urlMappingAnnotationClass;
+
+        Properties prop = loadConfigProperties();
+        try {
+            String controllerClassName = prop.getProperty("annotation.controller");
+            String urlMappingClassName = prop.getProperty("annotation.mapping");
+
+            if (controllerClassName == null || controllerClassName.isBlank()) {
+                throw new RuntimeException("[ERREUR] La propriété 'annotation.controller' est manquante dans config.properties.");
+            }
+            if (urlMappingClassName == null || urlMappingClassName.isBlank()) {
+                throw new RuntimeException("[ERREUR] La propriété 'annotation.mapping' est manquante dans config.properties.");
+            }
+
+            controllerAnnotationClass = Class.forName(controllerClassName).asSubclass(Annotation.class);
+            urlMappingAnnotationClass = Class.forName(urlMappingClassName).asSubclass(Annotation.class);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Une des annotations configurées n'existe pas", e);
+        }
 
         try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packageName).scan()) {
             ClassInfoList classesInfo = scanResult.getAllClasses();
@@ -85,33 +130,27 @@ public class LoadingClass {
                 try {
                     Class<?> clazz = Class.forName(classInfo.getName());
 
-                    if (!hasAnnotation(clazz, monAnnotationClasse)) {
+                    if (!clazz.isAnnotationPresent(controllerAnnotationClass)) {
                         continue;
                     }
 
-                    Class<?> annotationMethodeClass = Class.forName(monAnnotationMethode);
-                    Class<? extends Annotation> urlMappingAnnotationClass = annotationMethodeClass
-                            .asSubclass(Annotation.class);
-
                     for (Method method : clazz.getDeclaredMethods()) {
                         Annotation urlMapping = method.getAnnotation(urlMappingAnnotationClass);
+
                         if (urlMapping != null) {
-                            String url = (String) urlMappingAnnotationClass
-                                    .getMethod("value")
-                                    .invoke(urlMapping);
-                            String methodType = (String) urlMappingAnnotationClass
-                                    .getMethod("method")
-                                    .invoke(urlMapping);
+                            String url = (String) urlMappingAnnotationClass.getMethod("value").invoke(urlMapping);
+                            String methodType = (String) urlMappingAnnotationClass.getMethod("method").invoke(urlMapping);
 
                             UrlMethod urlMethod = new UrlMethod(url, methodType);
+
                             if (routes.containsKey(urlMethod)) {
                                 Mapping mappingExistant = routes.get(urlMethod);
                                 throw new IllegalStateException(
                                         """
-                                                [ERREUR] Conflit de routes détecté !
-                                                La route [%s %s] est déjà associée à la méthode : %s.%s()
-                                                Impossible de la réassigner à : %s.%s()
-                                                """.formatted(
+                                        [ERREUR] Conflit de routes détecté !
+                                        La route [%s %s] est déjà associée à la méthode : %s.%s()
+                                        Impossible de la réassigner à : %s.%s()
+                                        """.formatted(
                                                 methodType,
                                                 url,
                                                 mappingExistant.getControllerClass().getName(),
@@ -119,14 +158,15 @@ public class LoadingClass {
                                                 clazz.getName(),
                                                 method.getName()));
                             }
+
                             routes.put(urlMethod, new Mapping(clazz, method));
                         }
                     }
 
                 } catch (ClassNotFoundException e) {
                     throw new RuntimeException("Erreur lors du chargement de la classe : " + classInfo.getName(), e);
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                    throw new RuntimeException("Erreur lors de la lecture de l'annotation " + monAnnotationMethode, e);
+                } catch (IllegalAccessException | IllegalStateException | NoSuchMethodException | SecurityException | InvocationTargetException e) {
+                    throw new RuntimeException("Erreur lors de la lecture dynamique des méthodes de l'annotation", e);
                 }
             }
         }

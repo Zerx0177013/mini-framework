@@ -1,10 +1,14 @@
 package roro.listener;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
+import java.util.Properties;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
+import roro.util.LoadingClass;
 import roro.util.Mapping;
 import roro.util.UrlMethod;
 
@@ -16,11 +20,21 @@ public class AppServletContextListener implements ServletContextListener {
         System.out.println("[INIT] Tomcat démarre l'application. Lancement du scan des routes...");
 
         try {
-            String packageName = "roro.app";
-            String monAnnotation = "roro.annotation.MonController";
-            String monAnnotation2 = "roro.annotation.UrlMapping";
-            Map<UrlMethod, Mapping> toutesLesRoutes= roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName, monAnnotation,
-                    monAnnotation2);
+            String packageName;
+            Properties prop = new Properties();
+            try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
+                if (input == null) {
+                    throw new RuntimeException("[ERREUR] Impossible de trouver le fichier config.properties.");
+                }
+                prop.load(input);
+
+                packageName = prop.getProperty("app.package");
+
+            } catch (IOException e) {
+                throw new RuntimeException("Erreur lors de la lecture de config.properties", e);
+            } 
+
+            Map<UrlMethod, Mapping> toutesLesRoutes = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName);
 
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
 

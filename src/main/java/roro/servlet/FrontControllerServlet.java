@@ -15,34 +15,14 @@ import roro.util.UrlMethod;
 
 public class FrontControllerServlet extends HttpServlet {
 
-    // List<String> listeClasse = new ArrayList<>();
+    Map<UrlMethod, Mapping> routesWithMethod;
 
-    // @Override
-    // public void init() throws ServletException {
-    // super.init();
-    // String packageName = "roro.app";
-    // String monAnnotation = "roro.annotation.MonController";
-    // String monAnnotation2 = "roro.annotation.UrlMapping";
-    // List<String> mesAnnotations = new ArrayList<>();
-    // mesAnnotations.add(monAnnotation);
-    // mesAnnotations.add(monAnnotation2);
-    // listeClasse = roro.util.LoadingClass.loadClassWithMyAnnotation(packageName,
-    // mesAnnotations);
-    // }
-
-    // Map<String, Mapping> routes;
-    // Map<UrlMethod, Mapping> routesWithMethod;
-
-    // @Override
-    // public void init() throws ServletException {
-    //     super.init();
-    //     String packageName = "roro.app";
-    //     String monAnnotation = "roro.annotation.MonController";
-    //     String monAnnotation2 = "roro.annotation.UrlMapping";
-
-    //     // routes = roro.util.LoadingClass.loadUrlMappings(packageName, monAnnotation, monAnnotation2);
-    //     routesWithMethod = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName, monAnnotation, monAnnotation2);
-    // }
+    @SuppressWarnings("unchecked")
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        routesWithMethod =(Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -56,18 +36,12 @@ public class FrontControllerServlet extends HttpServlet {
         processRequest(request, response);
     }
 
-    @SuppressWarnings("unchecked")
     private void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.setContentType("text/plain;charset=UTF-8");
 
-        // String url = request.getRequestURL().toString();
-        Map<UrlMethod, Mapping> routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
-
         try (PrintWriter out = response.getWriter()) {
             out.println("---Mon Framework Perso ---");
-
-
             String pathInfo = request.getRequestURI().substring(request.getContextPath().length());
             UrlMethod urlMethod = new UrlMethod(pathInfo, request.getMethod());
             if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {

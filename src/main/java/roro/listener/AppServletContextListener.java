@@ -2,17 +2,16 @@ package roro.listener;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
-import jakarta.servlet.annotation.WebListener;
 import roro.util.LoadingClass;
 import roro.util.Mapping;
 import roro.util.UrlMethod;
 
-@WebListener
 public class AppServletContextListener implements ServletContextListener {
 
     @Override
@@ -21,6 +20,7 @@ public class AppServletContextListener implements ServletContextListener {
 
         try {
             String packageName;
+            Map<UrlMethod, Mapping> toutesLesRoutes = new HashMap<>();
             Properties prop = new Properties();
             try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
                 if (input == null) {
@@ -34,7 +34,7 @@ public class AppServletContextListener implements ServletContextListener {
                 throw new RuntimeException("Erreur lors de la lecture de config.properties", e);
             } 
 
-            Map<UrlMethod, Mapping> toutesLesRoutes = roro.util.LoadingClass.loadUrlMappingsWithMethod(packageName);
+            LoadingClass.loadUrlMappingsWithMethod(packageName,toutesLesRoutes);
 
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
 

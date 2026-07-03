@@ -7,21 +7,27 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import roro.util.Mapping;
+import roro.util.ModAndView;
 import roro.util.UrlMethod;
 
 public class FrontControllerServlet extends HttpServlet {
 
     Map<UrlMethod, Mapping> routesWithMethod;
+    String viewPrefix;
+    String viewSuffix;
 
     @SuppressWarnings("unchecked")
     @Override
     public void init() throws ServletException {
         super.init();
-        routesWithMethod =(Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
+        routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
+        viewPrefix = getServletContext().getInitParameter("view.prefix");
+        viewSuffix = getServletContext().getInitParameter("view.suffix");
     }
 
     @Override
@@ -37,40 +43,63 @@ public class FrontControllerServlet extends HttpServlet {
     }
 
     private void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-        response.setContentType("text/plain;charset=UTF-8");
+            throws IOException, ServletException {
+        String pathInfo = request.getRequestURI().substring(request.getContextPath().length());
+        UrlMethod urlMethod = new UrlMethod(pathInfo, request.getMethod());
 
-        try (PrintWriter out = response.getWriter()) {
-            out.println("---Mon Framework Perso ---");
-            String pathInfo = request.getRequestURI().substring(request.getContextPath().length());
-            UrlMethod urlMethod = new UrlMethod(pathInfo, request.getMethod());
-            if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {
-                Mapping mapping = routesWithMethod.get(urlMethod);
-                out.println("Route trouvée : " + urlMethod + " -> " + mapping);
-                System.out.println("Route trouvée : " + urlMethod + " -> " + mapping);
-            
-                try {
-                    Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
-                    Method controllerMethod = mapping.getMethod();
-                    Object result = controllerMethod.invoke(controller);
+        if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {
+            Mapping mapping = routesWithMethod.get(urlMethod);
+            System.out.println("Route trouvée : " + urlMethod + " -> " + mapping);
 
-                    if (result != null) {
-                        out.println("Resultat de la methode:\n");
-                        out.println(result);
-                        System.out.println(result);
-                    }
-                    
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException
-                        | NoSuchMethodException e) {
-                    throw new RuntimeException("Impossible d'exécuter la méthode liée à " + urlMethod, e);
+            try {
+                Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
+                Method controllerMethod = mapping.getMethod();
+                Object result = controllerMethod.invoke(controller);
+
+                if (result == null) {
+                    throw new ServletException("La méthode liée à " + urlMethod + " a retourné null");
                 }
-            } else {
+
+                if (result instanceof ModAndView mav) {
+                    if (mav.getValues() != null) {
+                        request.setAttribute("map", mav.getValues());
+                    }
+
+                    if (mav.getView() != null && !mav.getView().isBlank()) {
+                        String viewPath = viewPrefix + mav.getView() + viewSuffix;
+                        RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
+                        dispatcher.forward(request, response);
+                        return;
+                    }
+
+                    throw new ServletException("Aucune vue définie pour " + urlMethod);
+                }
+
+                if (result instanceof String text) {
+                    response.setContentType("text/plain;charset=UTF-8");
+                    try (PrintWriter out = response.getWriter()) {
+                        out.println("Resultat de la methode:\n");
+                        out.println(text);
+                    }
+                    return;
+                }
+
+                throw new ServletException(
+                        "Type de retour non supporté pour " + urlMethod + " : " + result.getClass().getName());
+
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                    | NoSuchMethodException e) {
+                throw new RuntimeException("Impossible d'exécuter la méthode liée à " + urlMethod, e);
+            }
+        } else {
+            response.setContentType("text/plain;charset=UTF-8");
+            try (PrintWriter out = response.getWriter()) {
                 out.println("Aucune route trouvée pour l'URL : " + pathInfo);
                 routesWithMethod.forEach((urlMethodKey, mapping) -> {
-                    out.println(urlMethodKey + " -> " + mapping.getClassName() + "->" + mapping.getMethod().getName() + "()");
+                    out.println(urlMethodKey + " -> " + mapping.getClassName() + "->" + mapping.getMethod().getName()
+                            + "()");
                 });
             }
-
         }
     }
 }

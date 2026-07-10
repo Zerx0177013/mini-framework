@@ -14,13 +14,17 @@ import roro.util.UrlMethod;
 
 public class AppServletContextListener implements ServletContextListener {
 
+    String packageName;
+    String viewPrefix;
+    String viewSuffix;
+    Map<UrlMethod, Mapping> toutesLesRoutes;
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         System.out.println("[INIT] Tomcat démarre l'application. Lancement du scan des routes...");
 
         try {
-            String packageName;
-            Map<UrlMethod, Mapping> toutesLesRoutes = new HashMap<>();
+            toutesLesRoutes = new HashMap<>();
             Properties prop = new Properties();
             try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
                 if (input == null) {
@@ -32,11 +36,15 @@ public class AppServletContextListener implements ServletContextListener {
 
             } catch (IOException e) {
                 throw new RuntimeException("Erreur lors de la lecture de config.properties", e);
-            } 
+            }
 
-            LoadingClass.loadUrlMappingsWithMethod(packageName,toutesLesRoutes);
+            LoadingClass.loadUrlMappingsWithMethod(packageName, toutesLesRoutes);
+            viewPrefix = sce.getServletContext().getInitParameter("view.prefix");
+            viewSuffix = sce.getServletContext().getInitParameter("view.suffix");
 
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
+            sce.getServletContext().setAttribute("prefix", viewPrefix);
+            sce.getServletContext().setAttribute("suffix", viewSuffix);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 

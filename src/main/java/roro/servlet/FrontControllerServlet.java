@@ -6,8 +6,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,8 +26,8 @@ public class FrontControllerServlet extends HttpServlet {
     public void init() throws ServletException {
         super.init();
         routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
-        viewPrefix = getServletContext().getInitParameter("view.prefix");
-        viewSuffix = getServletContext().getInitParameter("view.suffix");
+        viewPrefix = (String)getServletContext().getAttribute("prefix");
+        viewSuffix = (String)getServletContext().getAttribute("suffix");
     }
 
     @Override
@@ -56,13 +56,9 @@ public class FrontControllerServlet extends HttpServlet {
                 Method controllerMethod = mapping.getMethod();
                 Object result = controllerMethod.invoke(controller);
 
-                if (result == null) {
-                    throw new ServletException("La méthode liée à " + urlMethod + " a retourné null");
-                }
-
                 if (result instanceof ModAndView mav) {
-                    if (mav.getValues() != null) {
-                        request.setAttribute("map", mav.getValues());
+                    for (Map.Entry<String, Object> en : mav.getValues().entrySet()) {
+                        request.setAttribute(en.getKey(), en.getValue());
                     }
 
                     if (mav.getView() != null && !mav.getView().isBlank()) {

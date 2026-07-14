@@ -6,12 +6,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import roro.util.LoadingClass;
 import roro.util.Mapping;
-import roro.util.UrlMethod;
-
+import roro.util.UrlMethod; 
 public class AppServletContextListener implements ServletContextListener {
 
     String packageName;
@@ -24,6 +26,9 @@ public class AppServletContextListener implements ServletContextListener {
         System.out.println("[INIT] Tomcat démarre l'application. Lancement du scan des routes...");
 
         try {
+            ApplicationContext springContext = WebApplicationContextUtils
+            .getRequiredWebApplicationContext(sce.getServletContext());
+
             toutesLesRoutes = new HashMap<>();
             Properties prop = new Properties();
             try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
@@ -45,6 +50,7 @@ public class AppServletContextListener implements ServletContextListener {
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
             sce.getServletContext().setAttribute("prefix", viewPrefix);
             sce.getServletContext().setAttribute("suffix", viewSuffix);
+            sce.getServletContext().setAttribute("springContext", springContext);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 

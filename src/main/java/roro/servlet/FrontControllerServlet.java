@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
+
+import org.springframework.context.ApplicationContext;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -20,14 +23,16 @@ public class FrontControllerServlet extends HttpServlet {
     Map<UrlMethod, Mapping> routesWithMethod;
     String viewPrefix;
     String viewSuffix;
+    ApplicationContext springContext;
 
     @SuppressWarnings("unchecked")
     @Override
     public void init() throws ServletException {
         super.init();
         routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
-        viewPrefix = (String)getServletContext().getAttribute("prefix");
-        viewSuffix = (String)getServletContext().getAttribute("suffix");
+        viewPrefix = (String) getServletContext().getAttribute("prefix");
+        viewSuffix = (String) getServletContext().getAttribute("suffix");
+        springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
     }
 
     @Override
@@ -54,10 +59,21 @@ public class FrontControllerServlet extends HttpServlet {
             try {
                 Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 Method controllerMethod = mapping.getMethod();
-                Object result = controllerMethod.invoke(controller);
+                Class<?>[] parameterTypes = controllerMethod.getParameterTypes();
+                Object[] parameters = new Object[parameterTypes.length];
+                for (int i = 0; i < parameterTypes.length; i++) {
+                    Class<?> paramType = parameterTypes[i];
+
+                    if (paramType.equals(ApplicationContext.class)) {
+                        parameters[i] = springContext;
+                    } else {
+                        parameters[i] = null;
+                    }
+                }
+                Object result = controllerMethod.invoke(controller, parameters);
 
                 if (result instanceof ModAndView mav) {
-                    for (Map.Entry<String, Object> en : mav.getValues().entrySet()) {
+                    for (Map.Entry<String, List<?>> en : mav.getValues().entrySet()) {
                         request.setAttribute(en.getKey(), en.getValue());
                     }
 

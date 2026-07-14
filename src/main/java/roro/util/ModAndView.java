@@ -1,15 +1,18 @@
 package roro.util;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
 public class ModAndView {
     private String view;
-    private Map<String, Object> values;
+    private Map<String, List<?>> values;
 
     public ModAndView() {
         this.values = new HashMap<>();
     }
-    public ModAndView(String view, Map<String, Object> values) {
+
+    public ModAndView(String view, Map<String, List<?>> values) {
         this.view = view;
         this.values = values;
     }
@@ -22,16 +25,15 @@ public class ModAndView {
         this.view = view;
     }
 
-    public Map<String, Object> getValues() {
+    public Map<String, List<?>> getValues() {
         return values;
     }
 
-    public void setValues(Map<String, Object> values) {
+    public void setValues(Map<String, List<?>> values) {
         this.values = values;
     }
 
-    public void addValue(String key, Object value) {
+    public void addValue(String key, List<?> value) {
         this.values.put(key, value);
     }
-
 }

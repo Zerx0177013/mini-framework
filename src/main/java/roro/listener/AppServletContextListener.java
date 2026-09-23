@@ -18,6 +18,7 @@ public class AppServletContextListener implements ServletContextListener {
     String packageName;
     String viewPrefix;
     String viewSuffix;
+    String annotationRest;
     Map<UrlMethod, Mapping> toutesLesRoutes;
 
     @Override
@@ -46,10 +47,13 @@ public class AppServletContextListener implements ServletContextListener {
             viewPrefix = sce.getServletContext().getInitParameter("view.prefix");
             viewSuffix = sce.getServletContext().getInitParameter("view.suffix");
 
+            annotationRest = prop.getProperty("annotation.rest");
+
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
             sce.getServletContext().setAttribute("prefix", viewPrefix);
             sce.getServletContext().setAttribute("suffix", viewSuffix);
             sce.getServletContext().setAttribute("springContext", springContext);
+            sce.getServletContext().setAttribute("annotationRest", annotationRest);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 

@@ -9,11 +9,14 @@ import java.util.Map;
 
 import org.springframework.context.ApplicationContext;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import roro.util.LoadingClass;
 import roro.util.Mapping;
 import roro.util.ModAndView;
 import roro.util.UrlMethod;
@@ -23,6 +26,7 @@ public class FrontControllerServlet extends HttpServlet {
     Map<UrlMethod, Mapping> routesWithMethod;
     String viewPrefix;
     String viewSuffix;
+    String annotationRest;
     ApplicationContext springContext;
 
     @SuppressWarnings("unchecked")
@@ -32,6 +36,7 @@ public class FrontControllerServlet extends HttpServlet {
         routesWithMethod = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("routesWithMethod");
         viewPrefix = (String) getServletContext().getAttribute("prefix");
         viewSuffix = (String) getServletContext().getAttribute("suffix");
+        annotationRest = (String) getServletContext().getAttribute("annotationRest");
         springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
     }
 
@@ -85,15 +90,22 @@ public class FrontControllerServlet extends HttpServlet {
                     }
 
                     throw new ServletException("Aucune vue définie pour " + urlMethod);
-                }
-
-                if (result instanceof String text) {
+                } else if (result instanceof String text) {
                     response.setContentType("text/plain;charset=UTF-8");
+                    if(LoadingClass.hasAnnotation(mapping.getControllerClass(), annotationRest)) {
+                        response.setContentType("application/json;charset=UTF-8");
+                    }
                     try (PrintWriter out = response.getWriter()) {
-                        out.println("Resultat de la methode:\n");
                         out.println(text);
                     }
                     return;
+                } else{
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    response.setContentType("application/json;charset=UTF-8");
+                    try (PrintWriter out = response.getWriter()) {
+                        String json = objectMapper.writeValueAsString(result);
+                        out.println(json);
+                    }
                 }
 
                 throw new ServletException(

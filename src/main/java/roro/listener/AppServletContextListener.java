@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.springframework.context.ApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -26,7 +25,7 @@ public class AppServletContextListener implements ServletContextListener {
         System.out.println("[INIT] Tomcat démarre l'application. Lancement du scan des routes...");
 
         try {
-            ApplicationContext springContext = WebApplicationContextUtils
+            ApplicationContext springContext = org.springframework.web.context.support.WebApplicationContextUtils
             .getRequiredWebApplicationContext(sce.getServletContext());
 
             toutesLesRoutes = new HashMap<>();

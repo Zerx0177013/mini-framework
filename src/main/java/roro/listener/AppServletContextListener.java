@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.springframework.context.ApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -19,6 +18,7 @@ public class AppServletContextListener implements ServletContextListener {
     String packageName;
     String viewPrefix;
     String viewSuffix;
+    String annotationRest;
     Map<UrlMethod, Mapping> toutesLesRoutes;
 
     @Override
@@ -26,7 +26,7 @@ public class AppServletContextListener implements ServletContextListener {
         System.out.println("[INIT] Tomcat démarre l'application. Lancement du scan des routes...");
 
         try {
-            ApplicationContext springContext = WebApplicationContextUtils
+            ApplicationContext springContext = org.springframework.web.context.support.WebApplicationContextUtils
             .getRequiredWebApplicationContext(sce.getServletContext());
 
             toutesLesRoutes = new HashMap<>();
@@ -47,10 +47,13 @@ public class AppServletContextListener implements ServletContextListener {
             viewPrefix = sce.getServletContext().getInitParameter("view.prefix");
             viewSuffix = sce.getServletContext().getInitParameter("view.suffix");
 
+            annotationRest = prop.getProperty("annotation.rest");
+
             sce.getServletContext().setAttribute("routesWithMethod", toutesLesRoutes);
             sce.getServletContext().setAttribute("prefix", viewPrefix);
             sce.getServletContext().setAttribute("suffix", viewSuffix);
             sce.getServletContext().setAttribute("springContext", springContext);
+            sce.getServletContext().setAttribute("annotationRest", annotationRest);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 

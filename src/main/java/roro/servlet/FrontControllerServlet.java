@@ -2,6 +2,7 @@ package roro.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -16,7 +17,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import roro.util.LoadingClass;
 import roro.util.Mapping;
 import roro.util.ModAndView;
 import roro.util.UrlMethod;
@@ -71,6 +71,21 @@ public class FrontControllerServlet extends HttpServlet {
 
                     if (paramType.equals(ApplicationContext.class)) {
                         parameters[i] = springContext;
+                    } else if (paramType.equals(HttpServletRequest.class)) {
+                        parameters[i] = request;
+                    } else if (paramType.equals(HttpServletResponse.class)) {
+                        parameters[i] = response;
+                    } else if (paramType.equals(String.class)) {
+                        String paramName = controllerMethod.getParameters()[i].getName();
+                        parameters[i] = request.getParameter(paramName);
+                    } else if (paramType.equals(int.class) || paramType.equals(Integer.class)) {
+                        String paramName = controllerMethod.getParameters()[i].getName();
+                        String paramValue = request.getParameter(paramName);
+                        int value = 0;
+                        if (paramValue != null) {
+                            value = Integer.parseInt(paramValue);
+                        }
+                        parameters[i] = value;
                     } else {
                         parameters[i] = null;
                     }
@@ -78,10 +93,11 @@ public class FrontControllerServlet extends HttpServlet {
                 Object result = controllerMethod.invoke(controller, parameters);
 
                 if (result instanceof ModAndView mav) {
-                    for (Map.Entry<String, List<?>> en : mav.getValues().entrySet()) {
-                        request.setAttribute(en.getKey(), en.getValue());
+                    if (mav.getValues() != null) {
+                        for (Map.Entry<String, List<?>> en : mav.getValues().entrySet()) {
+                            request.setAttribute(en.getKey(), en.getValue());
+                        }
                     }
-
                     if (mav.getView() != null && !mav.getView().isBlank()) {
                         String viewPath = viewPrefix + mav.getView() + viewSuffix;
                         RequestDispatcher dispatcher = request.getRequestDispatcher(viewPath);
@@ -92,14 +108,21 @@ public class FrontControllerServlet extends HttpServlet {
                     throw new ServletException("Aucune vue définie pour " + urlMethod);
                 } else if (result instanceof String text) {
                     response.setContentType("text/plain;charset=UTF-8");
-                    if(LoadingClass.hasAnnotation(mapping.getControllerClass(), annotationRest)) {
-                        response.setContentType("application/json;charset=UTF-8");
+                    try {
+                        Class<? extends Annotation> restAnnotationClass = Class.forName(annotationRest)
+                                .asSubclass(Annotation.class);
+
+                        if (mapping.getMethod().isAnnotationPresent(restAnnotationClass)) {
+                            response.setContentType("application/json;charset=UTF-8");
+                        }
+                    } catch (ClassNotFoundException e) {
+                        throw new ServletException("Annotation REST introuvable : " + annotationRest, e);
                     }
                     try (PrintWriter out = response.getWriter()) {
                         out.println(text);
                     }
                     return;
-                } else{
+                } else {
                     ObjectMapper objectMapper = new ObjectMapper();
                     response.setContentType("application/json;charset=UTF-8");
                     try (PrintWriter out = response.getWriter()) {

@@ -17,10 +17,10 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import roro.util.Binder;
 import roro.util.Mapping;
 import roro.util.ModAndView;
 import roro.util.UrlMethod;
-
 public class FrontControllerServlet extends HttpServlet {
 
     Map<UrlMethod, Mapping> routesWithMethod;
@@ -86,6 +86,12 @@ public class FrontControllerServlet extends HttpServlet {
                             value = Integer.parseInt(paramValue);
                         }
                         parameters[i] = value;
+                    } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
+                        try {
+                            parameters[i] = Binder.bind(paramType, request);
+                        } catch (Exception e) {
+                            throw new ServletException("Erreur lors de la liaison des paramètres pour " + urlMethod, e);
+                        }
                     } else {
                         parameters[i] = null;
                     }

@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ import roro.util.Binder;
 import roro.util.Mapping;
 import roro.util.ModAndView;
 import roro.util.UrlMethod;
+
 public class FrontControllerServlet extends HttpServlet {
 
     Map<UrlMethod, Mapping> routesWithMethod;
@@ -67,34 +69,7 @@ public class FrontControllerServlet extends HttpServlet {
                 Class<?>[] parameterTypes = controllerMethod.getParameterTypes();
                 Object[] parameters = new Object[parameterTypes.length];
                 for (int i = 0; i < parameterTypes.length; i++) {
-                    Class<?> paramType = parameterTypes[i];
-
-                    if (paramType.equals(ApplicationContext.class)) {
-                        parameters[i] = springContext;
-                    } else if (paramType.equals(HttpServletRequest.class)) {
-                        parameters[i] = request;
-                    } else if (paramType.equals(HttpServletResponse.class)) {
-                        parameters[i] = response;
-                    } else if (paramType.equals(String.class)) {
-                        String paramName = controllerMethod.getParameters()[i].getName();
-                        parameters[i] = request.getParameter(paramName);
-                    } else if (paramType.equals(int.class) || paramType.equals(Integer.class)) {
-                        String paramName = controllerMethod.getParameters()[i].getName();
-                        String paramValue = request.getParameter(paramName);
-                        int value = 0;
-                        if (paramValue != null) {
-                            value = Integer.parseInt(paramValue);
-                        }
-                        parameters[i] = value;
-                    } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
-                        try {
-                            parameters[i] = Binder.bind(paramType, request);
-                        } catch (Exception e) {
-                            throw new ServletException("Erreur lors de la liaison des paramètres pour " + urlMethod, e);
-                        }
-                    } else {
-                        parameters[i] = null;
-                    }
+                    parameters[i] = populateParameter(controllerMethod, i, request, response, urlMethod);
                 }
                 Object result = controllerMethod.invoke(controller, parameters);
 
@@ -154,5 +129,90 @@ public class FrontControllerServlet extends HttpServlet {
                 });
             }
         }
+    }
+
+    private Object populateParameter(Method controllerMethod, int index, HttpServletRequest request,
+            HttpServletResponse response, UrlMethod urlMethod) throws ServletException {
+        Class<?> paramType = controllerMethod.getParameterTypes()[index];
+        String paramName = controllerMethod.getParameters()[index].getName();
+
+        if (paramType.equals(ApplicationContext.class)) {
+            return springContext;
+        } else if (paramType.equals(HttpServletRequest.class)) {
+            return request;
+        } else if (paramType.equals(HttpServletResponse.class)) {
+            return response;
+        } else if (paramType.equals(String.class)) {
+            return request.getParameter(paramName);
+        } else if (paramType.equals(int.class) || paramType.equals(Integer.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(int.class)) return 0;
+            } else {
+                return Integer.valueOf(value);
+            }
+        } else if (paramType.equals(byte.class) || paramType.equals(Byte.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(byte.class)) return (byte) 0;
+            } else {
+                return Byte.valueOf(value);
+            }
+        } else if (paramType.equals(short.class) || paramType.equals(Short.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(short.class)) return (short) 0;
+            } else {
+                return Short.valueOf(value);
+            }
+        } else if (paramType.equals(long.class) || paramType.equals(Long.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(long.class)) return 0L;
+            } else {
+                return Long.valueOf(value);
+            }
+        } else if (paramType.equals(float.class) || paramType.equals(Float.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(float.class)) return 0F;
+            } else {
+                return Float.valueOf(value);
+            }
+        } else if (paramType.equals(double.class) || paramType.equals(Double.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(double.class)) return 0D;
+            } else {
+                return Double.valueOf(value);
+            }
+        } else if (paramType.equals(boolean.class) || paramType.equals(Boolean.class)) {
+            String value = request.getParameter(paramName);
+            if (value == null) {
+                if (paramType.equals(boolean.class)) return false;
+            } else {
+                return Boolean.valueOf(value);
+            }
+        } else if (paramType.equals(char.class) || paramType.equals(Character.class)) {
+            String value = request.getParameter(paramName);
+            if (value != null) {
+                if (value.length() != 1)
+                    throw new ServletException("Le paramètre doit contenir un seul caractère : " + value);
+                return value.charAt(0);
+            } else if (paramType.equals(char.class)) {
+                return '\0';
+            }
+        } else if (paramType.equals(LocalDate.class)) {
+            String value = request.getParameter(paramName);
+            if (value != null) return LocalDate.parse(value);
+        } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
+            try {
+                return Binder.bind(paramType, request);
+            } catch (Exception e) {
+                throw new ServletException("Erreur lors de la liaison des paramètres pour " + urlMethod, e);
+            }
+        }
+
+        return null;
     }
 }

@@ -18,7 +18,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import roro.util.Binder;
+import roro.util.FileUpload;
 import roro.util.Mapping;
 import roro.util.ModAndView;
 import roro.util.UrlMethod;
@@ -109,11 +111,12 @@ public class FrontControllerServlet extends HttpServlet {
                     try (PrintWriter out = response.getWriter()) {
                         String json = objectMapper.writeValueAsString(result);
                         out.println(json);
+                        return;
                     }
                 }
 
-                throw new ServletException(
-                        "Type de retour non supporté pour " + urlMethod + " : " + result.getClass().getName());
+                // throw new ServletException(
+                //         "Type de retour non supporté pour " + urlMethod + " : " + result.getClass().getName());
 
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException
                     | NoSuchMethodException e) {
@@ -135,7 +138,7 @@ public class FrontControllerServlet extends HttpServlet {
             HttpServletResponse response, UrlMethod urlMethod) throws ServletException {
         Class<?> paramType = controllerMethod.getParameterTypes()[index];
         String paramName = controllerMethod.getParameters()[index].getName();
-
+        System.err.println("paramname " + paramName);
         if (paramType.equals(ApplicationContext.class)) {
             return springContext;
         } else if (paramType.equals(HttpServletRequest.class)) {
@@ -205,7 +208,22 @@ public class FrontControllerServlet extends HttpServlet {
         } else if (paramType.equals(LocalDate.class)) {
             String value = request.getParameter(paramName);
             if (value != null) return LocalDate.parse(value);
-        } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
+        }  else if (paramType.equals(FileUpload.class)) {
+        if (!FileUpload.isMultipart(request)) return null;
+        try {
+            Part part = request.getPart(paramName);
+            return part == null ? null : FileUpload.convertToFileUpload(part);
+        } catch (IOException e) {
+            throw new ServletException("Error reading file " + paramName, e);
+        }
+    } else if (paramType.equals(FileUpload[].class)) {
+        if (!FileUpload.isMultipart(request)) return new FileUpload[0];
+        try {
+            return FileUpload.fromAll(request, paramName);
+        } catch (IOException e) {
+            throw new ServletException("Error reading files " + paramName, e);
+        }
+    }else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
             try {
                 return Binder.bind(paramType, request);
             } catch (Exception e) {

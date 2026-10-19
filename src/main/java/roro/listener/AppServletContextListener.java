@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.context.ApplicationContext;
 
@@ -12,6 +13,7 @@ import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import roro.util.LoadingClass;
 import roro.util.Mapping;
+import roro.util.MySession;
 import roro.util.UrlMethod; 
 public class AppServletContextListener implements ServletContextListener {
 
@@ -20,6 +22,7 @@ public class AppServletContextListener implements ServletContextListener {
     String viewSuffix;
     String annotationRest;
     Map<UrlMethod, Mapping> toutesLesRoutes;
+    Map<String, MySession> sessions;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -28,7 +31,8 @@ public class AppServletContextListener implements ServletContextListener {
         try {
             ApplicationContext springContext = org.springframework.web.context.support.WebApplicationContextUtils
             .getRequiredWebApplicationContext(sce.getServletContext());
-
+            
+            sessions = new ConcurrentHashMap<>();
             toutesLesRoutes = new HashMap<>();
             Properties prop = new Properties();
             try (InputStream input = LoadingClass.class.getClassLoader().getResourceAsStream("config.properties")) {
@@ -54,6 +58,7 @@ public class AppServletContextListener implements ServletContextListener {
             sce.getServletContext().setAttribute("suffix", viewSuffix);
             sce.getServletContext().setAttribute("springContext", springContext);
             sce.getServletContext().setAttribute("annotationRest", annotationRest);
+            sce.getServletContext().setAttribute("sessions", sessions);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 

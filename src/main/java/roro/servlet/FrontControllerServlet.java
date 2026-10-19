@@ -35,6 +35,7 @@ public class FrontControllerServlet extends HttpServlet {
     String viewSuffix;
     String annotationRest;
     ApplicationContext springContext;
+    Map<String, MySession> sessions;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -45,6 +46,7 @@ public class FrontControllerServlet extends HttpServlet {
         viewSuffix = (String) getServletContext().getAttribute("suffix");
         annotationRest = (String) getServletContext().getAttribute("annotationRest");
         springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
+        sessions = (Map<String, MySession>) getServletContext().getAttribute("sessions");
     }
 
     @Override
@@ -84,11 +86,11 @@ public class FrontControllerServlet extends HttpServlet {
 
                         // Enumeration<String> attributeNames = session.getAttributeNames();
                         // while (attributeNames.hasMoreElements()) {
-                        //     String name = attributeNames.nextElement();
+                        // String name = attributeNames.nextElement();
 
-                        //     if (!ms.getSessionData().containsKey(name)) {
-                        //         session.removeAttribute(name);
-                        //     }
+                        // if (!ms.getSessionData().containsKey(name)) {
+                        // session.removeAttribute(name);
+                        // }
                         // }
 
                         for (String name : Collections.list(session.getAttributeNames())) {
@@ -262,7 +264,10 @@ public class FrontControllerServlet extends HttpServlet {
             }
         } else if (paramType.equals(MySession.class)) {
             HttpSession session = request.getSession(true);
-            MySession mySession = new MySession();
+            if (!sessions.containsKey(session.getId())) {
+                sessions.put(session.getId(), new MySession());
+            }
+            MySession mySession = sessions.get(session.getId());
             Collections.list(session.getAttributeNames()).forEach(name -> {
                 mySession.setAttribute(name, session.getAttribute(name));
             });

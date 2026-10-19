@@ -6,6 +6,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -18,11 +19,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 import roro.util.Binder;
 import roro.util.FileUpload;
 import roro.util.Mapping;
 import roro.util.ModAndView;
+import roro.util.MySession;
 import roro.util.UrlMethod;
 
 public class FrontControllerServlet extends HttpServlet {
@@ -32,6 +35,7 @@ public class FrontControllerServlet extends HttpServlet {
     String viewSuffix;
     String annotationRest;
     ApplicationContext springContext;
+    Map<String, MySession> sessions;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -42,6 +46,7 @@ public class FrontControllerServlet extends HttpServlet {
         viewSuffix = (String) getServletContext().getAttribute("suffix");
         annotationRest = (String) getServletContext().getAttribute("annotationRest");
         springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
+        sessions = (Map<String, MySession>) getServletContext().getAttribute("sessions");
     }
 
     @Override
@@ -74,6 +79,29 @@ public class FrontControllerServlet extends HttpServlet {
                     parameters[i] = populateParameter(controllerMethod, i, request, response, urlMethod);
                 }
                 Object result = controllerMethod.invoke(controller, parameters);
+
+                for (Object p : parameters) {
+                    if (p instanceof MySession ms) {
+                        HttpSession session = request.getSession(true);
+
+                        // Enumeration<String> attributeNames = session.getAttributeNames();
+                        // while (attributeNames.hasMoreElements()) {
+                        // String name = attributeNames.nextElement();
+
+                        // if (!ms.getSessionData().containsKey(name)) {
+                        // session.removeAttribute(name);
+                        // }
+                        // }
+
+                        for (String name : Collections.list(session.getAttributeNames())) {
+                            if (!ms.getSessionData().containsKey(name))
+                                session.removeAttribute(name);
+                        }
+                        for (Map.Entry<String, Object> en : ms.getSessionData().entrySet()) {
+                            session.setAttribute(en.getKey(), en.getValue());
+                        }
+                    }
+                }
 
                 if (result instanceof ModAndView mav) {
                     if (mav.getValues() != null) {
@@ -116,7 +144,8 @@ public class FrontControllerServlet extends HttpServlet {
                 }
 
                 // throw new ServletException(
-                //         "Type de retour non supporté pour " + urlMethod + " : " + result.getClass().getName());
+                // "Type de retour non supporté pour " + urlMethod + " : " +
+                // result.getClass().getName());
 
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException
                     | NoSuchMethodException e) {
@@ -150,49 +179,56 @@ public class FrontControllerServlet extends HttpServlet {
         } else if (paramType.equals(int.class) || paramType.equals(Integer.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(int.class)) return 0;
+                if (paramType.equals(int.class))
+                    return 0;
             } else {
                 return Integer.valueOf(value);
             }
         } else if (paramType.equals(byte.class) || paramType.equals(Byte.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(byte.class)) return (byte) 0;
+                if (paramType.equals(byte.class))
+                    return (byte) 0;
             } else {
                 return Byte.valueOf(value);
             }
         } else if (paramType.equals(short.class) || paramType.equals(Short.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(short.class)) return (short) 0;
+                if (paramType.equals(short.class))
+                    return (short) 0;
             } else {
                 return Short.valueOf(value);
             }
         } else if (paramType.equals(long.class) || paramType.equals(Long.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(long.class)) return 0L;
+                if (paramType.equals(long.class))
+                    return 0L;
             } else {
                 return Long.valueOf(value);
             }
         } else if (paramType.equals(float.class) || paramType.equals(Float.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(float.class)) return 0F;
+                if (paramType.equals(float.class))
+                    return 0F;
             } else {
                 return Float.valueOf(value);
             }
         } else if (paramType.equals(double.class) || paramType.equals(Double.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(double.class)) return 0D;
+                if (paramType.equals(double.class))
+                    return 0D;
             } else {
                 return Double.valueOf(value);
             }
         } else if (paramType.equals(boolean.class) || paramType.equals(Boolean.class)) {
             String value = request.getParameter(paramName);
             if (value == null) {
-                if (paramType.equals(boolean.class)) return false;
+                if (paramType.equals(boolean.class))
+                    return false;
             } else {
                 return Boolean.valueOf(value);
             }
@@ -207,23 +243,36 @@ public class FrontControllerServlet extends HttpServlet {
             }
         } else if (paramType.equals(LocalDate.class)) {
             String value = request.getParameter(paramName);
-            if (value != null) return LocalDate.parse(value);
-        }  else if (paramType.equals(FileUpload.class)) {
-        if (!FileUpload.isMultipart(request)) return null;
-        try {
-            Part part = request.getPart(paramName);
-            return part == null ? null : FileUpload.convertToFileUpload(part);
-        } catch (IOException e) {
-            throw new ServletException("Error reading file " + paramName, e);
-        }
-    } else if (paramType.equals(FileUpload[].class)) {
-        if (!FileUpload.isMultipart(request)) return new FileUpload[0];
-        try {
-            return FileUpload.fromAll(request, paramName);
-        } catch (IOException e) {
-            throw new ServletException("Error reading files " + paramName, e);
-        }
-    }else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
+            if (value != null)
+                return LocalDate.parse(value);
+        } else if (paramType.equals(FileUpload.class)) {
+            if (!FileUpload.isMultipart(request))
+                return null;
+            try {
+                Part part = request.getPart(paramName);
+                return part == null ? null : FileUpload.convertToFileUpload(part);
+            } catch (IOException e) {
+                throw new ServletException("Error reading file " + paramName, e);
+            }
+        } else if (paramType.equals(FileUpload[].class)) {
+            if (!FileUpload.isMultipart(request))
+                return new FileUpload[0];
+            try {
+                return FileUpload.fromAll(request, paramName);
+            } catch (IOException e) {
+                throw new ServletException("Error reading files " + paramName, e);
+            }
+        } else if (paramType.equals(MySession.class)) {
+            HttpSession session = request.getSession(true);
+            if (!sessions.containsKey(session.getId())) {
+                sessions.put(session.getId(), new MySession());
+            }
+            MySession mySession = sessions.get(session.getId());
+            Collections.list(session.getAttributeNames()).forEach(name -> {
+                mySession.setAttribute(name, session.getAttribute(name));
+            });
+            return mySession;
+        } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
             try {
                 return Binder.bind(paramType, request);
             } catch (Exception e) {

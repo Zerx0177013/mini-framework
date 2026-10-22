@@ -14,7 +14,8 @@ import jakarta.servlet.ServletContextListener;
 import roro.util.LoadingClass;
 import roro.util.Mapping;
 import roro.util.MySession;
-import roro.util.UrlMethod; 
+import roro.util.UrlMethod;
+
 public class AppServletContextListener implements ServletContextListener {
 
     String packageName;
@@ -23,6 +24,7 @@ public class AppServletContextListener implements ServletContextListener {
     String annotationRest;
     Map<UrlMethod, Mapping> toutesLesRoutes;
     Map<String, MySession> sessions;
+    String userSessionKey;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -30,8 +32,12 @@ public class AppServletContextListener implements ServletContextListener {
 
         try {
             ApplicationContext springContext = org.springframework.web.context.support.WebApplicationContextUtils
-            .getRequiredWebApplicationContext(sce.getServletContext());
-            
+                    .getRequiredWebApplicationContext(sce.getServletContext());
+
+            userSessionKey = sce.getServletContext().getInitParameter("auth.user-session-key");
+            if (userSessionKey == null || userSessionKey.isBlank()) {
+                throw new IllegalStateException("Le paramètre auth.user-session-key est obligatoire");
+            }
             sessions = new ConcurrentHashMap<>();
             toutesLesRoutes = new HashMap<>();
             Properties prop = new Properties();
@@ -58,6 +64,7 @@ public class AppServletContextListener implements ServletContextListener {
             sce.getServletContext().setAttribute("suffix", viewSuffix);
             sce.getServletContext().setAttribute("springContext", springContext);
             sce.getServletContext().setAttribute("annotationRest", annotationRest);
+            sce.getServletContext().setAttribute("userSessionKey", userSessionKey);
             sce.getServletContext().setAttribute("sessions", sessions);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");

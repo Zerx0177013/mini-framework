@@ -6,6 +6,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class FrontControllerServlet extends HttpServlet {
     ApplicationContext springContext;
     Map<String, MySession> sessions;
     String userSessionKey;
+    String roleSessionKey;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -49,6 +51,7 @@ public class FrontControllerServlet extends HttpServlet {
         annotationRest = (String) getServletContext().getAttribute("annotationRest");
         springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
         userSessionKey = (String) getServletContext().getAttribute("userSessionKey");
+        roleSessionKey = (String) getServletContext().getAttribute("roleSessionKey");
         sessions = (Map<String, MySession>) getServletContext().getAttribute("sessions");
     }
 
@@ -83,7 +86,16 @@ public class FrontControllerServlet extends HttpServlet {
                                 "Vous devez être connecté pour accéder à " + urlMethod);
                         return;
                     }
+                    String[] roles = controllerMethod.getAnnotation(Auth.class).roles();
+                    if (roles.length > 0) {
+                        Object role =(httpSession == null) ? null : httpSession.getAttribute(roleSessionKey);
+                        if (role == null || !Arrays.asList(roles).contains(role.toString())) {
+                            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Rôle insuffisant");
+                            return;
+                        }
+                    }
                 }
+
                 Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 Class<?>[] parameterTypes = controllerMethod.getParameterTypes();
                 Object[] parameters = new Object[parameterTypes.length];

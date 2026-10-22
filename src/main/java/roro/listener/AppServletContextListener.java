@@ -25,6 +25,7 @@ public class AppServletContextListener implements ServletContextListener {
     Map<UrlMethod, Mapping> toutesLesRoutes;
     Map<String, MySession> sessions;
     String userSessionKey;
+    String roleSessionKey;
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
@@ -37,6 +38,10 @@ public class AppServletContextListener implements ServletContextListener {
             userSessionKey = sce.getServletContext().getInitParameter("auth.user-session-key");
             if (userSessionKey == null || userSessionKey.isBlank()) {
                 throw new IllegalStateException("Le paramètre auth.user-session-key est obligatoire");
+            }
+            roleSessionKey = sce.getServletContext().getInitParameter("auth.role-session-key");
+            if (roleSessionKey == null || roleSessionKey.isBlank()) {
+                throw new IllegalStateException("Le paramètre auth.role-session-key est obligatoire");
             }
             sessions = new ConcurrentHashMap<>();
             toutesLesRoutes = new HashMap<>();
@@ -65,13 +70,14 @@ public class AppServletContextListener implements ServletContextListener {
             sce.getServletContext().setAttribute("springContext", springContext);
             sce.getServletContext().setAttribute("annotationRest", annotationRest);
             sce.getServletContext().setAttribute("userSessionKey", userSessionKey);
+            sce.getServletContext().setAttribute("roleSessionKey", roleSessionKey);
             sce.getServletContext().setAttribute("sessions", sessions);
 
             System.out.println("[SUCCESS] Scan terminé avec succès. " + toutesLesRoutes.size() + " routes chargées.");
 
         } catch (IllegalStateException e) {
             System.err.println("[ERREUR CRITIQUE DÉMARRAGE] " + e.getMessage());
-            throw new RuntimeException("Échec du déploiement de l'application à cause d'un conflit de routes.", e);
+            throw new RuntimeException("Échec du déploiement de l'application : " + e.getMessage(), e);
         }
     }
 

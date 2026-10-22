@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
+import roro.annotation.Auth;
 import roro.util.Binder;
 import roro.util.FileUpload;
 import roro.util.Mapping;
@@ -36,6 +37,7 @@ public class FrontControllerServlet extends HttpServlet {
     String annotationRest;
     ApplicationContext springContext;
     Map<String, MySession> sessions;
+    String userSessionKey;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -46,6 +48,7 @@ public class FrontControllerServlet extends HttpServlet {
         viewSuffix = (String) getServletContext().getAttribute("suffix");
         annotationRest = (String) getServletContext().getAttribute("annotationRest");
         springContext = (ApplicationContext) getServletContext().getAttribute("springContext");
+        userSessionKey = (String) getServletContext().getAttribute("userSessionKey");
         sessions = (Map<String, MySession>) getServletContext().getAttribute("sessions");
     }
 
@@ -71,8 +74,17 @@ public class FrontControllerServlet extends HttpServlet {
             System.out.println("Route trouvée : " + urlMethod + " -> " + mapping);
 
             try {
-                Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 Method controllerMethod = mapping.getMethod();
+                if (controllerMethod.isAnnotationPresent(Auth.class)) {
+                    HttpSession httpSession = request.getSession(false);
+                    Object user = (httpSession == null) ? null : httpSession.getAttribute(userSessionKey);
+                    if (user == null) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED,
+                                "Vous devez être connecté pour accéder à " + urlMethod);
+                        return;
+                    }
+                }
+                Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
                 Class<?>[] parameterTypes = controllerMethod.getParameterTypes();
                 Object[] parameters = new Object[parameterTypes.length];
                 for (int i = 0; i < parameterTypes.length; i++) {

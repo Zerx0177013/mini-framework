@@ -3,13 +3,13 @@ package roro.servlet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.context.ApplicationContext;
 
@@ -40,6 +40,7 @@ public class FrontControllerServlet extends HttpServlet {
     Map<String, MySession> sessions;
     String userSessionKey;
     String roleSessionKey;
+    Map<Class<?>, Object> controllers;
 
     @SuppressWarnings("unchecked")
     @Override
@@ -53,6 +54,7 @@ public class FrontControllerServlet extends HttpServlet {
         userSessionKey = (String) getServletContext().getAttribute("userSessionKey");
         roleSessionKey = (String) getServletContext().getAttribute("roleSessionKey");
         sessions = (Map<String, MySession>) getServletContext().getAttribute("sessions");
+        controllers = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -88,7 +90,7 @@ public class FrontControllerServlet extends HttpServlet {
                     }
                     String[] roles = controllerMethod.getAnnotation(Auth.class).roles();
                     if (roles.length > 0) {
-                        Object role =(httpSession == null) ? null : httpSession.getAttribute(roleSessionKey);
+                        Object role = (httpSession == null) ? null : httpSession.getAttribute(roleSessionKey);
                         if (role == null || !Arrays.asList(roles).contains(role.toString())) {
                             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Rôle insuffisant");
                             return;
@@ -96,7 +98,8 @@ public class FrontControllerServlet extends HttpServlet {
                     }
                 }
 
-                Object controller = mapping.getControllerClass().getDeclaredConstructor().newInstance();
+                Object controller = getController(mapping.getControllerClass());
+
                 Class<?>[] parameterTypes = controllerMethod.getParameterTypes();
                 Object[] parameters = new Object[parameterTypes.length];
                 for (int i = 0; i < parameterTypes.length; i++) {
@@ -171,8 +174,7 @@ public class FrontControllerServlet extends HttpServlet {
                 // "Type de retour non supporté pour " + urlMethod + " : " +
                 // result.getClass().getName());
 
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException
-                    | NoSuchMethodException e) {
+            } catch (Exception e) {
                 throw new RuntimeException("Impossible d'exécuter la méthode liée à " + urlMethod, e);
             }
         } else {
@@ -306,4 +308,15 @@ public class FrontControllerServlet extends HttpServlet {
 
         return null;
     }
+
+    private Object getController(Class<?> controllerClass) {
+        return controllers.computeIfAbsent(controllerClass, c -> {
+            try {
+                return c.getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException("Impossible d'instancier le contrôleur " + c.getName(), e);
+            }
+        });
+    }
+
 }

@@ -178,6 +178,10 @@ public class FrontControllerServlet extends HttpServlet {
                 throw new RuntimeException("Impossible d'exécuter la méthode liée à " + urlMethod, e);
             }
         } else {
+            if (getServletContext().getResource(pathInfo) != null) {
+                getServletContext().getNamedDispatcher("default").forward(request, response);
+                return;
+            }
             response.setContentType("text/plain;charset=UTF-8");
             try (PrintWriter out = response.getWriter()) {
                 out.println("Aucune route trouvée pour l'URL : " + pathInfo);

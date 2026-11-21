@@ -69,10 +69,25 @@ public class FrontControllerServlet extends HttpServlet {
         processRequest(request, response);
     }
 
+    /**
+     * Chemin utilisé pour retrouver la route, sans le nom de l'application
+     * ni le préfixe du servlet-mapping.
+     * Ex : mapping "/app/*", URL /monProjet/app/login -> "/login".
+     * Avec un mapping "/" ou "*.do", getPathInfo() est null : on prend getServletPath().
+     */
+    private String resolveRoutePath(HttpServletRequest request) {
+        String path = request.getPathInfo();
+        if (path == null || path.isEmpty()) {
+            path = request.getServletPath();
+        }
+        return (path == null || path.isEmpty()) ? "/" : path;
+    }
+
     private void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
+        // Chemin complet relatif au contexte (ex: /app/login), utilisé pour les ressources statiques
         String pathInfo = request.getRequestURI().substring(request.getContextPath().length());
-        UrlMethod urlMethod = new UrlMethod(pathInfo, request.getMethod());
+        UrlMethod urlMethod = new UrlMethod(resolveRoutePath(request), request.getMethod());
 
         if (roro.util.LoadingClass.isARouteInsideMappingWithMethod(urlMethod, routesWithMethod)) {
             Mapping mapping = routesWithMethod.get(urlMethod);

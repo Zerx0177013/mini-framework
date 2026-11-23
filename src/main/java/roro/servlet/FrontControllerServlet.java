@@ -14,6 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.ApplicationContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -176,7 +178,9 @@ public class FrontControllerServlet extends HttpServlet {
                     }
                     return;
                 } else {
-                    ObjectMapper objectMapper = new ObjectMapper();
+                    ObjectMapper objectMapper = new ObjectMapper()
+                            .registerModule(new JavaTimeModule())
+                            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // "2001-05-12" instead of [2001,5,12] to make dates work
                     response.setContentType("application/json;charset=UTF-8");
                     try (PrintWriter out = response.getWriter()) {
                         String json = objectMapper.writeValueAsString(result);

@@ -1,7 +1,16 @@
 package roro.util;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
@@ -21,8 +30,14 @@ public class Binder {
             String prop = Character.toLowerCase(method.getName().charAt(3)) + method.getName().substring(4);
             String fullName = prefix + prop;
             Class<?> type = method.getParameterTypes()[0];
+            Type genericType = method.getGenericParameterTypes()[0];
 
-            if (isSimple(type)) {
+            if (isMulti(type)) {
+                if (request.getParameterValues(fullName) != null
+                        || hasParamStartingWith(request, fullName + "[")
+                        || (FileUpload.isMultipart(request) && request.getPart(fullName) != null))
+                    method.invoke(obj, bindMulti(fullName, type, genericType, request));
+            } else if (isSimple(type)) {
                 String value = request.getParameter(fullName);
                 if (value == null || value.isBlank())
                     continue;
@@ -70,6 +85,121 @@ public class Binder {
                 || t == Character.class
                 || t == LocalDate.class
                 || t.isEnum();
+    }
+
+    public static boolean isMulti(Class<?> t) {
+        if (t.isArray()) {
+            Class<?> c = t.getComponentType();
+            return c != FileUpload.class && !c.isArray();
+        }
+        return List.class == t || Set.class == t || Collection.class == t
+                || ArrayList.class == t || LinkedHashSet.class == t;
+    }
+
+
+    //  Builds an array or a List/Set for the form field "name":
+    //   simple elements (List<String>, int[]...): every value sent under "name"
+    //  List<FileUpload>: every file sent under "name"
+    //  objects (List<User>, User[]...): fields named name[0].prop, name[1].prop...
+     
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public static Object bindMulti(String name, Class<?> type, Type genericType, HttpServletRequest request)
+            throws Exception {
+        Class<?> elem = elementType(type, genericType);
+
+        if (isSimple(elem))
+            return convertMulti(request.getParameterValues(name), type, genericType);
+
+        List<Object> items = new ArrayList<>();
+        if (elem == FileUpload.class) {
+            if (FileUpload.isMultipart(request))
+                items.addAll(Arrays.asList(FileUpload.fromAll(request, name)));
+        } else {
+            int max = maxIndex(request, name);
+            for (int i = 0; i <= max; i++) {
+                String itemPrefix = name + "[" + i + "].";
+                if (hasParamStartingWith(request, itemPrefix))
+                    items.add(bind(elem, request, itemPrefix));
+            }
+        }
+
+        if (type.isArray()) {
+            Object arr = Array.newInstance(elem, items.size());
+            for (int i = 0; i < items.size(); i++)
+                Array.set(arr, i, items.get(i));
+            return arr;
+        }
+        Collection col = Set.class.isAssignableFrom(type) ? new LinkedHashSet<>() : new ArrayList<>();
+        col.addAll(items);
+        return col;
+    }
+
+    private static Class<?> elementType(Class<?> type, Type genericType) {
+        if (type.isArray())
+            return type.getComponentType();
+        if (genericType instanceof ParameterizedType pt
+                && pt.getActualTypeArguments()[0] instanceof Class<?> c)
+            return c;
+        return String.class;
+    }
+
+    private static int maxIndex(HttpServletRequest request, String name) throws Exception {
+        List<String> keys = new ArrayList<>(request.getParameterMap().keySet());
+        if (FileUpload.isMultipart(request))
+            for (Part part : request.getParts())
+                keys.add(part.getName());
+
+        String start = name + "[";
+        int max = -1;
+        for (String key : keys) {
+            if (!key.startsWith(start))
+                continue;
+            int end = key.indexOf(']', start.length());
+            if (end < 0)
+                continue;
+            try {
+                max = Math.max(max, Integer.parseInt(key.substring(start.length(), end)));
+            } catch (NumberFormatException e) {
+            }
+        }
+        return max;
+    }
+
+    
+    //   Converts every value sent under the same name (checkboxes, select
+    //   multiple...)
+    //   to an array or a List/Set. The element type of a List/Set is read from the
+    //  generic type (List<Integer> -> Integer), String when it cannot be found.
+    
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public static Object convertMulti(String[] values, Class<?> type, Type genericType) {
+        if (values == null)
+            values = new String[0];
+
+        if (type.isArray()) {
+            Class<?> elem = type.getComponentType();
+            List<Object> converted = new ArrayList<>();
+            for (String v : values)
+                if (v != null && !v.isBlank())
+                    converted.add(convert(v, elem));
+            Object arr = Array.newInstance(elem, converted.size());
+            for (int i = 0; i < converted.size(); i++)
+                Array.set(arr, i, converted.get(i));
+            return arr;
+        }
+
+        Class<?> elem = String.class;
+        if (genericType instanceof ParameterizedType pt
+                && pt.getActualTypeArguments()[0] instanceof Class<?> c)
+            elem = c;
+        if (!isSimple(elem))
+            throw new IllegalArgumentException("Unsupported list element type: " + elem.getName());
+
+        Collection col = Set.class.isAssignableFrom(type) ? new LinkedHashSet<>() : new ArrayList<>();
+        for (String v : values)
+            if (v != null && !v.isBlank())
+                col.add(convert(v, elem));
+        return col;
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

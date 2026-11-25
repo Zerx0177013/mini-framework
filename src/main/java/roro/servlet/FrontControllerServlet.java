@@ -321,6 +321,13 @@ public class FrontControllerServlet extends HttpServlet {
                 mySession.setAttribute(name, session.getAttribute(name));
             });
             return mySession;
+        } else if (Binder.isMulti(paramType)) {
+            java.lang.reflect.Type generic = controllerMethod.getParameters()[index].getParameterizedType();
+            try {
+                return Binder.bindMulti(paramName, paramType, generic, request);
+            } catch (Exception e) {
+                throw new ServletException("Erreur lors de la liaison de la liste " + paramName, e);
+            }
         } else if (!paramType.isPrimitive() || !paramType.getName().startsWith("java.")) {
             try {
                 return Binder.bind(paramType, request);
